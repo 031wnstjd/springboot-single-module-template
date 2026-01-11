@@ -1,0 +1,20 @@
+spring:
+  profiles:
+    active: local # 기본 프로파일은 로컬로 설정
+    group:
+      local: "common"
+      dev: "common"
+      prod: "common"
+
+  application:
+    name: springboot-single-module-template
+
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write_dates_as_timestamps: false
+
+logging:
+  level:
+    root: INFO
+    com.template: DEBUG
