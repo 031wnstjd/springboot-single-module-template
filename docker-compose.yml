@@ -1,18 +1,142 @@
+# ===================================================
+# Docker Compose - 로컬 개발 환경
+# ===================================================
+# 이 파일은 로컬 개발 환경에서 애플리케이션과 데이터베이스를
+# 함께 실행하기 위한 Docker Compose 설정입니다.
+#
+# 구성:
+# - app: Spring Boot 애플리케이션
+# - oracle-xe: Oracle Database XE (Primary DB 시뮬레이션)
+# - gpdb1: PostgreSQL (GPDB1 시뮬레이션)
+# - gpdb2: PostgreSQL (GPDB2 시뮬레이션)
+#
+# 사용법:
+#   docker-compose up -d          # 전체 스택 실행
+#   docker-compose logs -f app    # 애플리케이션 로그 확인
+#   docker-compose down           # 전체 스택 종료
+# ===================================================
+
 services:
+  # ===================================================
+  # 애플리케이션 서비스
+  # ===================================================
   app:
     build: .
+    container_name: springboot-template-app
     ports:
       - "8080:8080"
     environment:
-      - SPRING_PROFILES_ACTIVE=local
+      - SPRING_PROFILES_ACTIVE=dev
+      # Primary DB (Oracle XE)
+      - PRIMARY_DB_HOST=oracle-xe
+      - PRIMARY_DB_PORT=1521
+      - PRIMARY_DB_SID=XE
+      - PRIMARY_DB_USERNAME=system
+      - PRIMARY_DB_PASSWORD=oracle
+      # GPDB1 (PostgreSQL)
+      - GPDB1_HOST=gpdb1
+      - GPDB1_PORT=5432
+      - GPDB1_DATABASE=gpdb1
+      - GPDB1_USERNAME=postgres
+      - GPDB1_PASSWORD=postgres
+      # GPDB2 (PostgreSQL)
+      - GPDB2_HOST=gpdb2
+      - GPDB2_PORT=5432
+      - GPDB2_DATABASE=gpdb2
+      - GPDB2_USERNAME=postgres
+      - GPDB2_PASSWORD=postgres
     depends_on:
-      - db
+      oracle-xe:
+        condition: service_healthy
+      gpdb1:
+        condition: service_healthy
+      gpdb2:
+        condition: service_healthy
+    networks:
+      - app-network
+    volumes:
+      - app-logs:/app/logs
 
-  db:
-    image: postgres:15-alpine
+  # ===================================================
+  # Oracle Database XE (Primary DB 시뮬레이션)
+  # ===================================================
+  # 주의: Oracle XE 이미지는 Oracle 라이선스 동의가 필요합니다.
+  # https://container-registry.oracle.com 에서 동의 후 사용하세요.
+  # ===================================================
+  oracle-xe:
+    image: container-registry.oracle.com/database/express:21.3.0-xe
+    container_name: oracle-xe
+    ports:
+      - "1521:1521"
     environment:
-      - POSTGRES_DB=template
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - ORACLE_PWD=oracle
+    healthcheck:
+      test: [ "CMD", "healthcheck.sh" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    networks:
+      - app-network
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+
+  # ===================================================
+  # PostgreSQL (GPDB1 시뮬레이션)
+  # ===================================================
+  gpdb1:
+    image: postgres:15-alpine
+    container_name: gpdb1
     ports:
       - "5432:5432"
+    environment:
+      - POSTGRES_DB=gpdb1
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+    volumes:
+      - gpdb1-data:/var/lib/postgresql/data
+
+  # ===================================================
+  # PostgreSQL (GPDB2 시뮬레이션)
+  # ===================================================
+  gpdb2:
+    image: postgres:15-alpine
+    container_name: gpdb2
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=gpdb2
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+    volumes:
+      - gpdb2-data:/var/lib/postgresql/data
+
+# ===================================================
+# 네트워크 정의
+# ===================================================
+networks:
+  app-network:
+    driver: bridge
+
+# ===================================================
+# 볼륨 정의 (데이터 영속성)
+# ===================================================
+volumes:
+  oracle-data:
+  gpdb1-data:
+  gpdb2-data:
+  app-logs:

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ===================================================
+  Logback 개발 환경 설정 (Dev Profile)
+  ===================================================
+  개발 서버 환경에 최적화된 로깅 설정입니다.
+  
+  특징:
+  - INFO 레벨 기본, 애플리케이션 패키지는 DEBUG
+  - 콘솔 + 파일 동시 출력
+  - 일별 롤링 파일 (gzip 압축)
+  - 30일 보관, 총 3GB 제한
+  ===================================================
+-->
+<included>
+    <!-- ===================================================
+         출력 패턴 정의
+         =================================================== -->
+    <property name="CONSOLE_PATTERN" 
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%thread] %cyan(%logger{36}) - %msg%n"/>
+    <property name="FILE_PATTERN" 
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"/>
+
+    <!-- ===================================================
+         콘솔 Appender
+         =================================================== -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ===================================================
+         롤링 파일 Appender
+         =================================================== 
+         일별 롤링 + 크기 기반 롤링을 조합합니다.
+         - 매일 새 파일 생성
+         - 100MB 초과 시 새 파일 생성
+         - gzip 압축으로 디스크 절약
+         =================================================== -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${APP_NAME}.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- 일별 롤링, gzip 압축 -->
+            <fileNamePattern>${LOG_PATH}/${APP_NAME}.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>${LOG_MAX_FILE_SIZE}</maxFileSize>
+            <maxHistory>${LOG_MAX_HISTORY}</maxHistory>
+            <totalSizeCap>${LOG_TOTAL_SIZE_CAP}</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${FILE_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ===================================================
+         루트 로거 설정
+         =================================================== -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+    <!-- ===================================================
+         애플리케이션 로거 (DEBUG 레벨)
+         =================================================== -->
+    <logger name="com.template" level="DEBUG"/>
+
+    <!-- ===================================================
+         SQL 로깅 (개발 환경용)
+         =================================================== -->
+    <logger name="org.hibernate.SQL" level="DEBUG"/>
+
+    <!-- ===================================================
+         OpenFeign 요청/응답 로깅
+         =================================================== -->
+    <logger name="feign" level="DEBUG"/>
+
+</included>

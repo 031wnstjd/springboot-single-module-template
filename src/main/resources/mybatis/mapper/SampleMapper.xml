@@ -2,9 +2,21 @@
 <!DOCTYPE mapper
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  ===================================================
+  샘플 MyBatis 매퍼 XML
+  ===================================================
+  MyBatis SQL 쿼리를 정의하는 XML 파일입니다.
+  복잡한 동적 쿼리나 네이티브 SQL이 필요한 경우 사용합니다.
+  ===================================================
+-->
 <mapper namespace="com.template.infrastructure.persistence.mybatis.SampleMyBatisMapper">
 
-    <resultMap id="SampleResultMap" type="com.template.domain.sample.entity.Sample">
+    <!-- 결과 매핑: DB 컬럼 → 도메인 객체 필드 -->
+    <resultMap id="SampleResultMap" type="com.template.domain.sample.Sample">
+        <constructor>
+            <!-- Sample은 @Builder를 사용하므로 생성자 매핑 불필요 -->
+        </constructor>
         <id property="id" column="id"/>
         <result property="title" column="title"/>
         <result property="content" column="content"/>
@@ -12,8 +24,10 @@
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
 
+    <!-- 제목으로 샘플 검색 -->
     <select id="selectByTitle" resultMap="SampleResultMap">
-        SELECT * FROM samples
+        SELECT id, title, content, created_at, updated_at
+        FROM samples
         WHERE title LIKE CONCAT('%', #{title}, '%')
     </select>
 

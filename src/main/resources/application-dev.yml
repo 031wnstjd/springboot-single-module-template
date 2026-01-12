@@ -1,19 +1,52 @@
-spring:
-  datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:template}
-    driver-class-name: org.postgresql.Driver
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+# ===================================================
+# 개발 환경 설정 (Development Profile)
+# ===================================================
+# 개발 서버에서 사용되는 설정입니다.
+# 실제 Oracle 및 Greenplum(PostgreSQL) 데이터베이스에 연결합니다.
+# ===================================================
 
+spring:
+  # ===================================================
+  # 데이터소스 설정 (Multi-DB)
+  # ===================================================
+  datasource:
+    # ----- Primary 데이터소스 (Oracle) -----
+    primary:
+      url: jdbc:oracle:thin:@${PRIMARY_DB_HOST:localhost}:${PRIMARY_DB_PORT:1521}:${PRIMARY_DB_SID:ORCL}
+      driver-class-name: oracle.jdbc.OracleDriver
+      username: ${PRIMARY_DB_USERNAME:dev_user}
+      password: ${PRIMARY_DB_PASSWORD:dev_password}
+    
+    # ----- GPDB1 데이터소스 (Greenplum #1) -----
+    gpdb1:
+      url: jdbc:postgresql://${GPDB1_HOST:localhost}:${GPDB1_PORT:5432}/${GPDB1_DATABASE:gpdb1}
+      driver-class-name: org.postgresql.Driver
+      username: ${GPDB1_USERNAME:gpdb_user}
+      password: ${GPDB1_PASSWORD:gpdb_password}
+    
+    # ----- GPDB2 데이터소스 (Greenplum #2) -----
+    gpdb2:
+      url: jdbc:postgresql://${GPDB2_HOST:localhost}:${GPDB2_PORT:5433}/${GPDB2_DATABASE:gpdb2}
+      driver-class-name: org.postgresql.Driver
+      username: ${GPDB2_USERNAME:gpdb_user}
+      password: ${GPDB2_PASSWORD:gpdb_password}
+
+  # ===================================================
+  # JPA 설정
+  # ===================================================
   jpa:
     hibernate:
+      # 개발 환경에서는 스키마 변경 시 자동 업데이트
       ddl-auto: update
     show-sql: true
     properties:
       hibernate:
         format_sql: true
 
+# ===================================================
+# MyBatis 설정
+# ===================================================
 mybatis:
-  mapper-locations: classpath:mybatis/mapper/*.xml
+  mapper-locations: classpath:mybatis/mapper/**/*.xml
   configuration:
     map-underscore-to-camel-case: true

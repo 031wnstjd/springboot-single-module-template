@@ -11,14 +11,14 @@
 - [주요 특징](#-주요-특징)
 - [기술 스택](#-기술-스택)
 - [프로젝트 구조](#-프로젝트-구조)
-- [아키텍처 설계](#-아키텍처-설계)
 - [시작하기](#-시작하기)
-- [환경별 설정](#-환경별-설정)
-- [API 사용법](#-api-사용법)
-- [주요 컴포넌트 가이드](#-주요-컴포넌트-가이드)
+- [Multi-DB 구성](#-multi-db-구성)
+- [OpenFeign (외부 API 연동)](#-openfeign-외부-api-연동)
+- [로깅 설정](#-로깅-설정)
+- [모니터링 (Actuator)](#-모니터링-actuator)
+- [Gradle Version Catalog](#-gradle-version-catalog)
 - [Docker 사용법](#-docker-사용법)
-- [테스트](#-테스트)
-- [라이선스](#-라이선스)
+- [API 사용법](#-api-사용법)
 
 ---
 
@@ -27,11 +27,13 @@
 | 구분 | 내용 |
 |------|------|
 | **아키텍처** | Clean Architecture + Domain-Driven Design (DDD) |
-| **의존성 관리** | 의존성 역전 원칙(DIP) 준수, 레이어 간 단방향 의존성 |
-| **데이터 접근** | JPA (QueryDSL 포함) + MyBatis 동시 지원 |
-| **환경 분리** | local / dev / prod 프로파일 기반 설정 |
-| **컨테이너화** | Docker 멀티스테이지 빌드 최적화 |
-| **코드 품질** | 상세한 한글 주석, 공통 예외/응답 처리, AOP 로깅 |
+| **Multi-DB** | Oracle (Primary) + PostgreSQL/GPDB (2개) 동시 지원 |
+| **외부 API 연동** | OpenFeign (선언적 HTTP 클라이언트) |
+| **데이터 접근** | JPA (QueryDSL) + MyBatis 동시 지원 |
+| **로깅** | Logback 프로파일별 분리 (local/dev/prod) |
+| **모니터링** | Spring Actuator (Health, Metrics, Prometheus) |
+| **버전 관리** | Gradle Version Catalog 중앙 집중식 관리 |
+| **컨테이너화** | Docker Layered JAR 최적화 |
 
 ---
 
@@ -40,20 +42,21 @@
 ### Core
 - **Java 21** (LTS)
 - **Spring Boot 3.3.5**
-- **Gradle 8.10.2** (Kotlin DSL)
+- **Spring Cloud 2023.0.3** (OpenFeign)
+- **Gradle 8.10.2** (Kotlin DSL + Version Catalog)
 
 ### Data Access
-- **Spring Data JPA** - ORM 기반 데이터 접근
-- **QueryDSL 5.1.0** (jakarta) - 타입 세이프 동적 쿼리
-- **MyBatis 3.0.3** - SQL 매퍼 프레임워크
+- **Spring Data JPA** + **QueryDSL 5.1.0**
+- **MyBatis 3.0.3**
 
 ### Database
+- **Oracle** - Primary 데이터소스
+- **PostgreSQL** - GPDB1, GPDB2 (Greenplum)
 - **H2** - 로컬 개발용 인메모리 DB
-- **PostgreSQL 15** - 개발/운영 환경
 
-### Infrastructure
-- **Docker** - 컨테이너화
-- **Docker Compose** - 로컬 개발 환경 오케스트레이션
+### Monitoring & Logging
+- **Spring Actuator** - Health, Metrics, Prometheus
+- **Logback** - 환경별 설정 (JSON, 롤링)
 
 ---
 
@@ -61,348 +64,257 @@
 
 ```text
 src/main/java/com/template/
-│
-├── TemplateApplication.java          # 애플리케이션 진입점
-│
-├── domain/                           # 🟢 도메인 레이어 (순수 비즈니스 로직)
-│   ├── common/
-│   │   ├── entity/
-│   │   │   └── BaseEntity.java       # 공통 엔티티 (생성/수정 시간)
-│   │   └── exception/
-│   │       └── BusinessException.java # 비즈니스 예외 기본 클래스
-│   │
-│   └── sample/                        # 샘플 도메인
-│       ├── entity/
-│       │   └── Sample.java           # 샘플 엔티티
-│       └── repository/
-│           └── SampleRepository.java # 리포지토리 인터페이스 (Port)
-│
-├── application/                      # 🔵 애플리케이션 레이어 (유스케이스)
-│   └── sample/
-│       ├── dto/
-│       │   ├── SampleRequest.java    # 요청 DTO
-│       │   └── SampleResponse.java   # 응답 DTO
-│       └── usecase/
-│           ├── SampleUseCase.java    # 유스케이스 인터페이스
-│           └── SampleService.java    # 유스케이스 구현체
-│
-├── infrastructure/                   # 🟠 인프라스트럭처 레이어 (기술적 구현)
+├── TemplateApplication.java
+├── domain/                           # 🟢 도메인 레이어
+├── application/                      # 🔵 애플리케이션 레이어
+├── infrastructure/                   # 🟠 인프라스트럭처 레이어
 │   ├── config/
-│   │   ├── jpa/
-│   │   │   └── JpaConfig.java        # JPA Auditing 설정
-│   │   ├── querydsl/
-│   │   │   └── QueryDslConfig.java   # JPAQueryFactory 빈 설정
-│   │   └── mybatis/
-│   │       └── MyBatisConfig.java    # MyBatis 매퍼 스캔 설정
-│   │
-│   └── persistence/
-│       ├── jpa/
-│       │   ├── SampleJpaRepository.java    # Spring Data JPA
-│       │   └── SampleRepositoryImpl.java   # 도메인 리포지토리 구현 (QueryDSL)
-│       └── mybatis/
-│           └── SampleMyBatisMapper.java    # MyBatis 매퍼 인터페이스
-│
-├── presentation/                     # 🟣 프레젠테이션 레이어 (API)
-│   ├── common/
-│   │   ├── response/
-│   │   │   └── ApiResponse.java      # 공통 API 응답 포맷
-│   │   └── exception/
-│   │       └── GlobalExceptionHandler.java # 전역 예외 처리
-│   │
-│   └── api/
-│       └── sample/
-│           └── SampleController.java # REST API 컨트롤러
-│
-└── support/                          # ⚪ 서포트 레이어 (공통 유틸리티)
-    ├── aop/
-    │   └── LoggingAspect.java        # API 로깅 AOP
-    └── util/
-        └── StringUtils.java          # 문자열 유틸리티
+│   │   ├── datasource/               # Multi-DB 설정 (Oracle, GPDB1, GPDB2)
+│   │   ├── feign/                    # ⭐ OpenFeign 설정
+│   │   │   ├── FeignConfig.java      # 전역 Feign 설정
+│   │   │   └── FeignErrorDecoder.java # 에러 처리
+│   │   ├── jpa/, querydsl/, mybatis/
+│   └── external/                     # ⭐ 외부 API 클라이언트
+│       └── sample/SampleExternalApiClient.java
+├── presentation/                     # 🟣 프레젠테이션 레이어
+└── support/                          # ⚪ 서포트 레이어
+
+src/main/resources/
+├── application.yml                   # 공통 설정
+├── application-local.yml             # 로컬 환경
+├── application-dev.yml               # 개발 환경
+├── application-prod.yml              # 운영 환경
+├── logback-spring.xml                # ⭐ Logback 메인 (프로파일 분기)
+├── logback-local.xml                 # ⭐ 로컬 로깅 설정
+├── logback-dev.xml                   # ⭐ 개발 로깅 설정
+├── logback-prod.xml                  # ⭐ 운영 로깅 설정 (JSON)
+└── mybatis/mapper/
 ```
-
----
-
-## 🏛 아키텍처 설계
-
-### 레이어 의존성 규칙
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Presentation Layer                        │
-│              (Controller, ApiResponse, Exception)            │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ 의존
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Application Layer                         │
-│                 (UseCase, Service, DTO)                      │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ 의존
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      Domain Layer                            │
-│           (Entity, Repository Interface, Exception)          │
-│                  ❌ 외부 의존성 없음 ❌                        │
-└─────────────────────────────────────────────────────────────┘
-                           ▲
-                           │ 구현 (의존성 역전)
-┌─────────────────────────────────────────────────────────────┐
-│                  Infrastructure Layer                        │
-│        (JPA Repository, QueryDSL, MyBatis, Config)           │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 핵심 원칙
-
-1. **의존성 역전 원칙 (DIP)**
-   - 도메인 레이어는 외부 기술에 의존하지 않습니다.
-   - `SampleRepository` 인터페이스는 도메인에 정의되고, `SampleRepositoryImpl`은 인프라에서 구현합니다.
-
-2. **단방향 의존성**
-   - `Presentation → Application → Domain ← Infrastructure`
-   - 상위 레이어는 하위 레이어만 의존합니다.
-
-3. **관심사 분리**
-   - 각 레이어는 명확한 책임을 가집니다.
-   - 비즈니스 로직은 도메인에, 기술적 구현은 인프라에 위치합니다.
 
 ---
 
 ## 🚀 시작하기
 
 ### 사전 요구사항
-
 - Java 21+
-- Docker (선택사항)
+- Docker (선택)
 
-### 로컬 실행 (H2 인메모리 DB)
-
+### 로컬 실행
 ```bash
-# 프로젝트 클론
-git clone <repository-url>
-cd springboot-single-module-template
-
-# 빌드
-./gradlew build
-
-# 실행
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
 ### 접속 정보
-
 | 서비스 | URL |
 |--------|-----|
 | API | http://localhost:8080/api/v1/samples |
 | H2 Console | http://localhost:8080/h2-console |
-
-**H2 Console 접속 정보:**
-- JDBC URL: `jdbc:h2:mem:testdb`
-- Username: `sa`
-- Password: (비워두기)
+| Actuator Health | http://localhost:8080/actuator/health |
+| Actuator Metrics | http://localhost:8080/actuator/metrics |
 
 ---
 
-## ⚙ 환경별 설정
+## 🗄 Multi-DB 구성
 
-### 프로파일 구조
+### 데이터소스 구조
 
-| 프로파일 | 용도 | 데이터베이스 |
-|----------|------|-------------|
-| `local` | 로컬 개발 | H2 인메모리 |
-| `dev` | 개발 서버 | PostgreSQL |
-| `prod` | 운영 서버 | PostgreSQL (환경변수) |
+| 데이터소스 | 타입 | 용도 |
+|------------|------|------|
+| Primary | Oracle | 주 트랜잭션 DB |
+| GPDB1 | PostgreSQL | 분석 DB #1 |
+| GPDB2 | PostgreSQL | 분석 DB #2 |
 
-### 환경변수 (prod)
-
-```bash
-export DB_HOST=your-db-host
-export DB_PORT=5432
-export DB_NAME=your-db-name
-export DB_USERNAME=your-username
-export DB_PASSWORD=your-password
-```
-
-### 프로파일 적용 방법
-
-```bash
-# Gradle
-./gradlew bootRun --args='--spring.profiles.active=dev'
-
-# JAR 실행
-java -jar app.jar --spring.profiles.active=prod
-
-# Docker
-docker run -e SPRING_PROFILES_ACTIVE=prod your-image
-```
-
----
-
-## 📡 API 사용법
-
-### 샘플 API 엔드포인트
-
-| Method | Endpoint | 설명 |
-|--------|----------|------|
-| `POST` | `/api/v1/samples` | 샘플 생성 |
-| `GET` | `/api/v1/samples` | 전체 샘플 조회 |
-| `GET` | `/api/v1/samples/{id}` | 샘플 상세 조회 |
-| `PUT` | `/api/v1/samples/{id}` | 샘플 수정 |
-| `DELETE` | `/api/v1/samples/{id}` | 샘플 삭제 |
-
-### 요청/응답 예시
-
-**생성 요청:**
-```bash
-curl -X POST http://localhost:8080/api/v1/samples \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Hello", "content": "World"}'
-```
-
-**응답 형식:**
-```json
-{
-  "success": true,
-  "message": "요청이 성공적으로 처리되었습니다.",
-  "data": {
-    "id": 1,
-    "title": "Hello",
-    "content": "World",
-    "createdAt": "2024-01-01T12:00:00",
-    "updatedAt": "2024-01-01T12:00:00"
-  },
-  "errorCode": null
-}
-```
-
-**에러 응답:**
-```json
-{
-  "success": false,
-  "message": "샘플을 찾을 수 없습니다.",
-  "data": null,
-  "errorCode": "SAMPLE_NOT_FOUND"
-}
-```
-
----
-
-## 📚 주요 컴포넌트 가이드
-
-### 1. QueryDSL 사용법
-
-`SampleRepositoryImpl`에서 동적 쿼리 작성 예시:
+### 사용 방법
 
 ```java
-@Repository
+// Primary 데이터소스 (기본)
+@Transactional
+public void saveToOracle(Sample sample) { ... }
+
+// GPDB1 데이터소스 (명시적 지정)
+@Transactional("gpdb1TransactionManager")
+public void saveToGpdb1(Data data) { ... }
+```
+
+---
+
+## 🌐 OpenFeign (외부 API 연동)
+
+### 개요
+OpenFeign은 선언적 HTTP 클라이언트로, 인터페이스와 어노테이션만으로 외부 REST API 호출을 구현합니다.
+
+### 설정 파일
+- `FeignConfig.java`: 전역 설정 (타임아웃, 재시도, 로깅 레벨)
+- `FeignErrorDecoder.java`: HTTP 에러를 BusinessException으로 변환
+
+### 사용 예시
+
+**1. Feign 클라이언트 정의:**
+```java
+@FeignClient(
+    name = "sampleApi",
+    url = "${external.api.sample.url}",
+    configuration = FeignConfig.class
+)
+public interface SampleExternalApiClient {
+    @GetMapping("/posts/{id}")
+    Post getPostById(@PathVariable("id") Long id);
+}
+```
+
+**2. 서비스에서 사용:**
+```java
+@Service
 @RequiredArgsConstructor
-public class SampleRepositoryImpl implements SampleRepository {
-
-    private final JPAQueryFactory queryFactory;
-
-    @Override
-    public List<Sample> findByTitleContaining(String title) {
-        QSample sample = QSample.sample;
-        
-        return queryFactory
-                .selectFrom(sample)
-                .where(sample.title.containsIgnoreCase(title))
-                .fetch();
+public class ExternalDataService {
+    private final SampleExternalApiClient apiClient;
+    
+    public Post getPost(Long id) {
+        return apiClient.getPostById(id);
     }
 }
 ```
 
-**Q클래스 생성 위치:** `build/generated/querydsl`
+### 설정 (application.yml)
+```yaml
+external:
+  api:
+    sample:
+      url: https://jsonplaceholder.typicode.com
 
-### 2. MyBatis 사용법
-
-**Mapper 인터페이스:**
-```java
-@Mapper
-public interface SampleMyBatisMapper {
-    List<Sample> selectByTitle(@Param("title") String title);
-}
+spring:
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connect-timeout: 5000
+            read-timeout: 10000
 ```
 
-**XML 매퍼 (resources/mybatis/mapper/SampleMapper.xml):**
-```xml
-<select id="selectByTitle" resultType="Sample">
-    SELECT * FROM samples WHERE title LIKE CONCAT('%', #{title}, '%')
-</select>
-```
+---
 
-### 3. 예외 처리
+## 📝 로깅 설정
 
-**비즈니스 예외 발생:**
-```java
-throw new BusinessException("샘플을 찾을 수 없습니다.", "SAMPLE_NOT_FOUND");
-```
-
-`GlobalExceptionHandler`에서 자동으로 캐치하여 `ApiResponse` 형태로 응답합니다.
-
-### 4. AOP 로깅
-
-`LoggingAspect`가 모든 API 호출에 대해 자동으로 로깅합니다:
+### 프로파일별 분리 구조
 
 ```
-[API Request] GET /api/v1/samples | Method: SampleController.getAll | Args: []
-[API Response] GET /api/v1/samples | Time: 15ms
+logback-spring.xml          # 메인 (프로파일별 include)
+├── logback-local.xml       # local 프로파일
+├── logback-dev.xml         # dev 프로파일
+└── logback-prod.xml        # prod 프로파일
+```
+
+### 환경별 로깅 전략
+
+| 환경 | 레벨 | 출력 | 포맷 | 특징 |
+|------|------|------|------|------|
+| local | DEBUG | 콘솔 | 컬러 텍스트 | SQL, Feign 로깅 활성화 |
+| dev | INFO | 콘솔+파일 | 텍스트 | 일별 롤링, gzip 압축 |
+| prod | WARN | 파일 | JSON | 비동기, ELK 연동용 |
+
+### 로그 파일 위치
+- 경로: `./logs/springboot-template.log`
+- 에러 전용: `./logs/springboot-template-error.log` (prod)
+
+---
+
+## 📊 모니터링 (Actuator)
+
+### 활성화된 엔드포인트
+
+| 엔드포인트 | URL | 설명 |
+|------------|-----|------|
+| Health | `/actuator/health` | 애플리케이션 상태 |
+| Info | `/actuator/info` | 애플리케이션 정보 |
+| Metrics | `/actuator/metrics` | 메트릭 목록 |
+| Prometheus | `/actuator/prometheus` | Prometheus 형식 메트릭 |
+
+### 설정 (application.yml)
+```yaml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+```
+
+### Prometheus + Grafana 연동
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: 'spring-boot-app'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['localhost:8080']
+```
+
+---
+
+## 📦 Gradle Version Catalog
+
+### 버전 중앙 관리
+
+모든 의존성 버전은 `gradle/libs.versions.toml`에서 관리합니다.
+
+```toml
+[versions]
+spring-boot = "3.3.5"
+spring-cloud = "2023.0.3"
+querydsl = "5.1.0"
+
+[libraries]
+spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-cloud-starter-openfeign = { module = "org.springframework.cloud:spring-cloud-starter-openfeign" }
 ```
 
 ---
 
 ## 🐳 Docker 사용법
 
-### 이미지 빌드
+### 최적화된 빌드
+- **Layered JAR**: 의존성과 코드 분리로 캐싱 효율 향상
+- **Non-root 사용자**: 보안 강화
+- **JVM 튜닝**: 컨테이너 메모리 최적화
 
+### 빌드 및 실행
 ```bash
+# 이미지 빌드
 docker build -t springboot-template .
-```
 
-### 단독 실행 (로컬 프로파일)
-
-```bash
+# 실행
 docker run -p 8080:8080 -e SPRING_PROFILES_ACTIVE=local springboot-template
-```
 
-### Docker Compose
-
-```bash
-# 전체 스택 실행 (App + PostgreSQL)
+# Docker Compose (전체 스택)
 docker-compose up -d
-
-# 로그 확인
-docker-compose logs -f app
-
-# 종료
-docker-compose down
-```
-
-### Dockerfile 멀티스테이지 빌드 구조
-
-```dockerfile
-# 1단계: 빌드
-FROM eclipse-temurin:21-jdk-jammy AS build
-# 의존성 캐싱 및 JAR 생성
-
-# 2단계: 실행
-FROM eclipse-temurin:21-jre-jammy
-# 경량화된 JRE 이미지로 실행
 ```
 
 ---
 
-## 🧪 테스트
+## 📡 API 사용법
 
-```bash
-# 전체 테스트 실행
-./gradlew test
+### 샘플 API
 
-# 특정 테스트 클래스 실행
-./gradlew test --tests "SampleServiceTest"
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| `POST` | `/api/v1/samples` | 생성 |
+| `GET` | `/api/v1/samples` | 전체 조회 |
+| `GET` | `/api/v1/samples/{id}` | 상세 조회 |
+| `PUT` | `/api/v1/samples/{id}` | 수정 |
+| `DELETE` | `/api/v1/samples/{id}` | 삭제 |
 
-# 테스트 리포트 확인
-# build/reports/tests/test/index.html
+### 응답 형식
+```json
+{
+  "success": true,
+  "message": "요청이 성공적으로 처리되었습니다.",
+  "data": { ... },
+  "errorCode": null
+}
 ```
 
 ---
@@ -410,19 +322,3 @@ FROM eclipse-temurin:21-jre-jammy
 ## 📄 라이선스
 
 이 프로젝트는 팀 표준 템플릿으로 자유롭게 사용 및 수정이 가능합니다.
-
----
-
-## 🤝 기여 가이드
-
-1. 이 저장소를 Fork 합니다.
-2. 새 브랜치를 생성합니다: `git checkout -b feature/amazing-feature`
-3. 변경사항을 커밋합니다: `git commit -m 'feat: Add amazing feature'`
-4. 브랜치에 Push 합니다: `git push origin feature/amazing-feature`
-5. Pull Request를 생성합니다.
-
----
-
-## 📞 문의
-
-프로젝트에 대한 문의사항은 이슈를 통해 등록해 주세요.

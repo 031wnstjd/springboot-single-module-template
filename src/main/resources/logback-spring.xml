@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ===================================================
+  Logback 메인 설정 파일
+  ===================================================
+  이 파일은 Spring Boot 프로파일에 따라 환경별 로깅 설정을 로드합니다.
+  실제 로깅 설정은 각 프로파일별 파일(logback-{profile}.xml)에서 정의됩니다.
+  
+  프로파일별 설정 파일:
+  - logback-local.xml: 로컬 개발 환경
+  - logback-dev.xml: 개발 서버 환경
+  - logback-prod.xml: 운영 서버 환경
+  ===================================================
+-->
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <!-- ===================================================
+         공통 속성 정의
+         =================================================== -->
+    <!-- 애플리케이션 이름 (로그 식별용) -->
+    <property name="APP_NAME" value="springboot-template"/>
+    <!-- 로그 파일 저장 경로 -->
+    <property name="LOG_PATH" value="${LOG_PATH:-./logs}"/>
+    <!-- 로그 파일 보관 기간 (일) -->
+    <property name="LOG_MAX_HISTORY" value="30"/>
+    <!-- 총 로그 파일 최대 크기 -->
+    <property name="LOG_TOTAL_SIZE_CAP" value="3GB"/>
+    <!-- 단일 로그 파일 최대 크기 -->
+    <property name="LOG_MAX_FILE_SIZE" value="100MB"/>
+
+    <!-- ===================================================
+         프로파일별 설정 파일 로드
+         =================================================== 
+         Spring 프로파일에 따라 해당 Logback 설정 파일을 포함합니다.
+         =================================================== -->
+    <springProfile name="local">
+        <include resource="logback-local.xml"/>
+    </springProfile>
+
+    <springProfile name="dev">
+        <include resource="logback-dev.xml"/>
+    </springProfile>
+
+    <springProfile name="prod">
+        <include resource="logback-prod.xml"/>
+    </springProfile>
+
+</configuration>

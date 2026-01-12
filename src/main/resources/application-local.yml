@@ -1,25 +1,74 @@
+# ===================================================
+# 로컬 개발 환경 설정 (Local Profile)
+# ===================================================
+# 로컬 개발 시 사용되는 설정입니다.
+# H2 인메모리 데이터베이스를 사용하여 별도의 DB 설치 없이 개발할 수 있습니다.
+# ===================================================
+
 spring:
+  # ===================================================
+  # 데이터소스 설정 (Multi-DB)
+  # ===================================================
   datasource:
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  
+    # ----- Primary 데이터소스 (로컬에서는 H2 사용) -----
+    primary:
+      url: jdbc:h2:mem:primarydb;DB_CLOSE_DELAY=-1;MODE=Oracle
+      driver-class-name: org.h2.Driver
+      username: sa
+      password:
+    
+    # ----- GPDB1 데이터소스 (로컬에서는 H2 사용) -----
+    gpdb1:
+      url: jdbc:h2:mem:gpdb1;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+      driver-class-name: org.h2.Driver
+      username: sa
+      password:
+    
+    # ----- GPDB2 데이터소스 (로컬에서는 H2 사용) -----
+    gpdb2:
+      url: jdbc:h2:mem:gpdb2;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+      driver-class-name: org.h2.Driver
+      username: sa
+      password:
+
+  # ===================================================
+  # H2 Console 설정
+  # ===================================================
+  # 웹 브라우저에서 H2 데이터베이스에 접근할 수 있습니다.
+  # URL: http://localhost:8080/h2-console
+  # ===================================================
   h2:
     console:
       enabled: true
       path: /h2-console
+      settings:
+        # 외부 접근 허용 (개발 환경 전용)
+        web-allow-others: false
 
+  # ===================================================
+  # JPA 설정
+  # ===================================================
   jpa:
     hibernate:
+      # 애플리케이션 시작 시 스키마 자동 생성 (개발용)
       ddl-auto: create-drop
+    # SQL 쿼리 콘솔 출력
     show-sql: true
     properties:
       hibernate:
+        # SQL 포맷팅 (가독성 향상)
         format_sql: true
+        # SQL 하이라이팅
         highlight_sql: true
 
+# ===================================================
+# MyBatis 설정
+# ===================================================
 mybatis:
-  mapper-locations: classpath:mybatis/mapper/*.xml
+  # 매퍼 XML 파일 위치
+  mapper-locations: classpath:mybatis/mapper/**/*.xml
   configuration:
+    # 스네이크 케이스 → 카멜 케이스 자동 변환
     map-underscore-to-camel-case: true
+    # 쿼리 실행 로그 출력
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ===================================================
+  Logback 운영 환경 설정 (Prod Profile)
+  ===================================================
+  운영 서버 환경에 최적화된 로깅 설정입니다.
+  
+  특징:
+  - WARN 레벨 기본 (중요 로그만 기록)
+  - 애플리케이션 패키지는 INFO 레벨
+  - JSON 형식 출력 (ELK 스택 연동)
+  - 비동기 로깅으로 성능 최적화
+  - 일별 롤링 파일 (gzip 압축)
+  ===================================================
+-->
+<included>
+    <!-- ===================================================
+         JSON 형식 롤링 파일 Appender
+         =================================================== 
+         Logstash Encoder를 사용하여 JSON 형식으로 로그를 출력합니다.
+         ELK(Elasticsearch-Logstash-Kibana) 스택과 연동하기 좋습니다.
+         =================================================== -->
+    <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${APP_NAME}.json</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/${APP_NAME}.%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
+            <maxFileSize>${LOG_MAX_FILE_SIZE}</maxFileSize>
+            <maxHistory>${LOG_MAX_HISTORY}</maxHistory>
+            <totalSizeCap>${LOG_TOTAL_SIZE_CAP}</totalSizeCap>
+        </rollingPolicy>
+        <!-- Logstash JSON 인코더 -->
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- 호출 위치 정보 포함 (성능 영향 있음, 필요시 false) -->
+            <includeCallerData>false</includeCallerData>
+            <!-- 커스텀 필드 추가 -->
+            <customFields>{"app_name":"${APP_NAME}","env":"production"}</customFields>
+        </encoder>
+    </appender>
+
+    <!-- ===================================================
+         비동기 Appender (성능 최적화)
+         =================================================== 
+         로그 기록을 별도 스레드에서 처리하여 
+         애플리케이션 성능에 미치는 영향을 최소화합니다.
+         =================================================== -->
+    <appender name="ASYNC_JSON_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <!-- 큐가 가득 찼을 때 버릴 로그 비율 (0 = 버리지 않음) -->
+        <discardingThreshold>0</discardingThreshold>
+        <!-- 비동기 큐 크기 -->
+        <queueSize>512</queueSize>
+        <!-- 실제 Appender 참조 -->
+        <appender-ref ref="JSON_FILE"/>
+    </appender>
+
+    <!-- ===================================================
+         에러 로그 전용 파일 Appender
+         =================================================== 
+         ERROR 레벨 이상의 로그만 별도 파일에 기록합니다.
+         장애 분석 시 빠른 확인이 가능합니다.
+         =================================================== -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${APP_NAME}-error.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/${APP_NAME}-error.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>${LOG_MAX_FILE_SIZE}</maxFileSize>
+            <maxHistory>${LOG_MAX_HISTORY}</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeCallerData>true</includeCallerData>
+        </encoder>
+    </appender>
+
+    <!-- ===================================================
+         루트 로거 설정
+         =================================================== -->
+    <root level="WARN">
+        <appender-ref ref="ASYNC_JSON_FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+    </root>
+
+    <!-- ===================================================
+         애플리케이션 로거 (INFO 레벨)
+         =================================================== -->
+    <logger name="com.template" level="INFO"/>
+
+    <!-- ===================================================
+         OpenFeign 로깅 (운영에서는 WARN만)
+         =================================================== -->
+    <logger name="feign" level="WARN"/>
+
+</included>

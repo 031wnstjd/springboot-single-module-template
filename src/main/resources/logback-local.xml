@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ===================================================
+  Logback 로컬 환경 설정 (Local Profile)
+  ===================================================
+  로컬 개발 환경에 최적화된 로깅 설정입니다.
+  
+  특징:
+  - DEBUG 레벨로 상세 로깅
+  - 콘솔 출력만 사용 (파일 출력 없음)
+  - 컬러 하이라이팅 적용으로 가독성 향상
+  - SQL 쿼리 및 파라미터 로깅 활성화
+  ===================================================
+-->
+<included>
+    <!-- ===================================================
+         콘솔 출력 패턴 (컬러 적용)
+         =================================================== -->
+    <property name="CONSOLE_PATTERN" 
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%thread] %cyan(%logger{36}) - %msg%n"/>
+
+    <!-- ===================================================
+         콘솔 Appender
+         =================================================== 
+         모든 로그를 콘솔에 컬러로 출력합니다.
+         =================================================== -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ===================================================
+         루트 로거 설정
+         =================================================== -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+    <!-- ===================================================
+         애플리케이션 로거 (DEBUG 레벨)
+         =================================================== -->
+    <logger name="com.template" level="DEBUG"/>
+
+    <!-- ===================================================
+         JPA/Hibernate SQL 로깅
+         =================================================== 
+         SQL 쿼리와 바인딩 파라미터를 상세히 출력합니다.
+         =================================================== -->
+    <logger name="org.hibernate.SQL" level="DEBUG"/>
+    <logger name="org.hibernate.orm.jdbc.bind" level="TRACE"/>
+
+    <!-- ===================================================
+         MyBatis SQL 로깅
+         =================================================== -->
+    <logger name="org.mybatis" level="DEBUG"/>
+    <logger name="com.template.infrastructure.persistence.mybatis" level="DEBUG"/>
+
+    <!-- ===================================================
+         Spring 프레임워크 로깅
+         =================================================== -->
+    <logger name="org.springframework.web" level="DEBUG"/>
+
+    <!-- ===================================================
+         OpenFeign 요청/응답 로깅
+         =================================================== -->
+    <logger name="feign" level="DEBUG"/>
+    <logger name="com.template.infrastructure.external" level="DEBUG"/>
+
+</included>
